@@ -1,5 +1,7 @@
 # Evidencia de validación — 9 de noviembre de 2026
 
+> Registro histórico de pruebas aisladas. Para operar en AWS, consultar [la guía vigente](README.md).
+
 ## Compilación y pruebas
 
 Ejecutado con Java 21.0.5 y Maven Wrapper 3.10.0, conservando Spring Boot 4.1.2:

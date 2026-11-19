@@ -1,5 +1,7 @@
 # Demostración segura EV5 y EV6
 
+> En AWS la API es interna y de solo lectura. Reservar los ejemplos de escritura y sus credenciales ficticias para un clúster aislado de pruebas.
+
 Esta guía es un procedimiento **manual**. Las operaciones de escritura siguientes no fueron ejecutadas contra el clúster durante la implementación. Solo usar un tópico nuevo, exclusivo de la demostración; nunca events, analytics, smoke ni tópicos internos.
 
 ## 1. Iniciar el administrador en modo consulta
@@ -9,7 +11,7 @@ Compilar y arrancar según [README.md](README.md), con credenciales privadas y `
 En otra terminal PowerShell, preparar autenticación sin poner la contraseña en el historial de comandos:
 
 ```powershell
-$base = 'http://127.0.0.1:8089/api/kafka/admin'
+$base = 'http://kafka-admin:8089/api/kafka/admin'
 $credential = Get-Credential -Message 'Credenciales configuradas en ms-kafka-admin'
 $basic = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(
     $credential.UserName + ':' + $credential.GetNetworkCredential().Password))

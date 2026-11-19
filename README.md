@@ -33,7 +33,7 @@ Toda operación administrativa requiere HTTP Basic y rol ADMIN. La cuenta se con
 
 DELETE exige, adicionalmente, `X-Confirm-Topic` con el nombre exacto del tópico. Tener credenciales, CSRF y escritura habilitada no permite eliminar tópicos protegidos.
 
-Solo `/actuator/health` y sus grupos de salud son públicos, con un estado mínimo. Los demás endpoints Actuator no se exponen. Se mantienen los encabezados de seguridad de Spring. La interfaz local se limita a `127.0.0.1` por defecto.
+Solo `/actuator/health` y sus grupos de salud son públicos, con un estado mínimo. Los demás endpoints Actuator no se exponen. Se mantienen los encabezados de seguridad de Spring. La API queda dentro de la red Docker.
 
 ## Variables
 
@@ -42,8 +42,8 @@ Solo `/actuator/health` y sus grupos de salud son públicos, con un estado míni
 | Variable | Valor predeterminado | Función |
 | --- | --- | --- |
 | `SERVER_PORT` | `8089` | Puerto HTTP. |
-| `SERVER_ADDRESS` | `127.0.0.1` | Interfaz; en Docker usar `0.0.0.0` con acceso externo restringido. |
-| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:19092,localhost:29092,localhost:39092` | Listeners externos Windows. |
+| `SERVER_ADDRESS` | `0.0.0.0` | Interfaz del contenedor, sin publicar en el host. |
+| `KAFKA_BOOTSTRAP_SERVERS` | `10.0.2.174:19092,10.0.2.174:29092,10.0.2.174:39092` | Listeners privados de la EC2 Kafka. |
 | `KAFKA_ADMIN_USERNAME` | ninguno | Cuenta administrativa obligatoria. |
 | `KAFKA_ADMIN_PASSWORD` | ninguno | Contraseña obligatoria; 16 caracteres mínimo, 72 bytes UTF-8 máximo. |
 | `KAFKA_ADMIN_WRITES_ENABLED` | `false` | Habilita operaciones sobre tópicos no protegidos. |
@@ -56,32 +56,13 @@ Cada espera se limita al timeout configurado y AdminClient recibe `default.api.t
 
 El AdminClient incorpora las propiedades de `spring.kafka`, incluidas las propiedades SSL/SASL suministradas externamente. La autenticación HTTP no sustituye las ACL de Kafka. En el laboratorio PLAINTEXT la protección de esta API no protege accesos directos al broker o a Kafbat.
 
-## Compilar y ejecutar en PowerShell
+## Pruebas aisladas
 
-```powershell
-Set-Location 'G:\Desarrollo EP3-EP4\ms-kafka-admin'
-.\mvnw.cmd -B -ntp verify
-
-$adminCredential = Get-Credential -Message 'Cuenta administrativa Kafka (contraseña robusta, mínimo 16 caracteres)'
-$env:KAFKA_ADMIN_USERNAME = $adminCredential.UserName
-$env:KAFKA_ADMIN_PASSWORD = $adminCredential.GetNetworkCredential().Password
-$env:KAFKA_ADMIN_WRITES_ENABLED = 'false'
-$env:KAFKA_BOOTSTRAP_SERVERS = 'localhost:19092,localhost:29092,localhost:39092'
-$env:SERVER_PORT = '8089'
-$env:SERVER_ADDRESS = '127.0.0.1'
-java -jar .\target\ms-kafka-admin-0.0.1-SNAPSHOT.jar
-# Alternativa: .\mvnw.cmd spring-boot:run
+```bash
+./mvnw -B -ntp test
 ```
 
-Detener con Ctrl+C cierra solo el microservicio; no detiene brokers ni elimina recursos. Al finalizar la sesión quitar las credenciales del proceso: `$env:KAFKA_ADMIN_PASSWORD=$null; $env:KAFKA_ADMIN_USERNAME=$null`. No usar una contraseña en argumentos de la línea de comandos.
-
-La prueba opcional siguiente arranca HTTP en un puerto aleatorio de loopback, genera credenciales efímeras en memoria y realiza únicamente GET contra Kafka existente:
-
-```powershell
-.\mvnw.cmd -B -ntp verify -P live-readonly
-```
-
-No es parte de `test`/`verify` predeterminado. Supone tres brokers, tópicos y grupo `bd-report-v1` presentes; si no están disponibles, falla en lugar de simular éxito. No crea contenedores ni tópicos, no se une al grupo y no confirma offsets. Guarda evidencia sin credenciales en `target/live-readonly-evidence.json`.
+La prueba opt-in de lectura de clúster requiere un Kafka exclusivo de pruebas.
 
 ## API REST
 
@@ -160,20 +141,13 @@ El factor se define al crear. Aumentar particiones no cambia la replicación de 
 
 El administrador se conecta a varios bootstrap servers y Kafka descubre la metadata. Las tres réplicas y min ISR=2 pertenecen a la infraestructura existente; AdminClient no puede garantizar disponibilidad si faltan brokers suficientes. El controller informado en este clúster corresponde al modo ZooKeeper; no se usan APIs de quorum KRaft.
 
-## Docker y AWS
+## Despliegue AWS
 
-Dockerfile usa una imagen JRE Java 21 con versión explícita, usuario no root y un JAR previamente compilado. No contiene secretos ni ejecuta acciones Kafka al construir.
+El Compose central de `infra-barriodigital/aws/compose.apps.yml` construye esta
+imagen a partir del checkout en la EC2 Apps. Usar la guía `README.AWS.md` de
+infraestructura para preparar las variables y ejecutar el despliegue por SSM.
 
-```powershell
-.\mvnw.cmd -B -ntp verify
-docker build -t barriodigital/ms-kafka-admin:local .
-# Usar la red existente y sus listeners internos reales; no inventar nombres de red.
-# Pasar credenciales desde variables de proceso mediante -e NOMBRE, sin escribir sus valores en comandos.
-```
-
-Para ejecutar dentro de Docker: `SERVER_ADDRESS=0.0.0.0`, brokers internos anunciados resolubles desde ese contenedor, red existente correcta y publicación de puerto restringida (`127.0.0.1:8089:8089` para pruebas locales). `localhost:19092` dentro del contenedor apunta al propio contenedor y no al broker. No se agrega Compose ni se modifican redes.
-
-En AWS usar HTTPS con certificado válido y acceso privado/restringido mediante redes, security groups y/o proxy autenticado. Configurar `SESSION_COOKIE_SECURE=true`, preservar la cookie CSRF y el encabezado Authorization, usar secretos externos y permisos Kafka mínimos. No publicar HTTP Basic en Internet sobre HTTP. Las ACL del broker deben impedir que otras herramientas eludan esta política. No se realizaron despliegues AWS ni construcción/ejecución de la imagen Docker durante la implementación.
+Compose inyecta `KAFKA_BOOTSTRAP_SERVERS` y la cuenta HTTP. Mantiene el puerto 8089 interno, readiness con Kafka y escritura deshabilitada en AWS.
 
 ## Referencias y demostración
 

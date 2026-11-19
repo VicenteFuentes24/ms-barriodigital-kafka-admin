@@ -42,3 +42,15 @@ build/
 *.p12
 *.jks
 secrets/
+
+# Archivos privados de despliegue
+*.env
+!.env.*.example
+passwords/
+credentials/
+.aws/
+*.pfx
+.erlang.cookie
+*.erlang.cookie
+ngrok.yml
+ngrok.yaml

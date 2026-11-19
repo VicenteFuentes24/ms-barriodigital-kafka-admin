@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.*;
 
-@SpringBootTest(properties={"app.kafka-admin.writes-enabled=true"})
+@SpringBootTest(properties={"spring.kafka.bootstrap-servers=127.0.0.1:1", "app.kafka-admin.writes-enabled=true"})
 @AutoConfigureMockMvc
 class MsKafkaAdminApplicationTests {
     static final String PASSWORD=UUID.randomUUID().toString();
